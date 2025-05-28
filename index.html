@@ -64,12 +64,14 @@
     }
 
     /* Floating controls container - from alittlebitofdislittlebitofdat19.html */
-    #floatingControls {
+    /* Keep the top-right controls hidden until the
+       user presses "Enter Site" (see JS below)      */
+      #floatingControls {
       position: fixed;
       top: 15px;
       right: 120px;
       z-index: 2147483647;
-      display: flex;
+      display: none;         /* ← start hidden */
       gap: 10px;
       background-color: rgba(255, 255, 255, 0.95);
       padding: 10px;
@@ -97,7 +99,7 @@
       cursor: not-allowed;
     }
     /* —— Brand-color Feather icons in floating controls —— */
-    /* set the button’s color so SVG stroke="currentColor" picks it up */
+    /* set the button's color so SVG stroke="currentColor" picks it up */
     #floatingControls .control-button {
       color: #86899A;
     }
@@ -108,7 +110,7 @@
       height: 20px;
       /* increase stroke thickness */
       stroke-width: 2.5;
-      /* ensure it still uses the button’s currentColor */
+      /* ensure it still uses the button's currentColor */
       stroke: currentColor;
     } 
 
@@ -308,13 +310,166 @@
     .flow-log-close:hover{opacity:1}
     .log-icon{width:16px;height:16px;stroke-width:2;stroke:currentColor;fill:none}
     .log-icon-info{color:#17a2b8}.log-icon-error{color:#dc3545}.log-icon-success{color:#28a745}
+    /* -------- Walkthrough overlay -------- */
+    #walkthroughOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      /* Soft peach background shows when the video
+         doesn't fill the whole viewport              */
+      background: #ffff;
+      z-index: 2147483649; /* higher than everything else */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #walkthroughVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;        /* keep aspect ratio */
+    }
+    /* progress bar (fills after each video ends) */
+    #walkthroughProgressBarContainer{
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:6px;
+      background:rgba(0,0,0,.08);       /* faint track */
+      z-index:2147483651;               /* above overlay */
+    }
+    #walkthroughProgressBar{
+      width:0;
+      height:100%;
+      background:rgba(240,81,35,.75);   /* brand orange, translucent */
+      transition:width .3s ease;
+    }
 
+    .walkthrough-btn {
+      position: fixed;
+      bottom: 40px;
+      padding: 12px 24px;
+      font-size: 18px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.8);
+      color: #000;
+      cursor: pointer;
+      z-index: 2147483650;        /* above overlay */
+    }
+    /* turns orange once current video ends */
+    .walkthrough-btn.ready{
+      background:#F05123;
+      color:#fff;
+    }
+    #prevWalkthroughBtn { left: 25%; }
+    #nextWalkthroughBtn { right: 25%; }
   </style>
 </head>
 
 <body>
   <!-- The floating circles canvas -->
   <canvas id="canvas"></canvas>
+
+
+  <!-- Walkthrough full-screen overlay -->
+  <div id="walkthroughOverlay">
+    <video id="walkthroughVideo" autoplay muted playsinline></video>
+  </div>
+  <!-- overall progress -->
+  <div id="walkthroughProgressBarContainer">
+    <div id="walkthroughProgressBar"></div>
+  </div>
+  <button id="prevWalkthroughBtn" class="walkthrough-btn">Back</button>
+  <button id="nextWalkthroughBtn" class="walkthrough-btn">Next</button>
+
+  <!-- =========================================================
+       Walkthrough video navigation
+       (add this **after** the overlay markup so the elements
+        exist, and **before** the rest of your application JS)
+  ========================================================== -->
+  <script>
+    /* -----------------------------------------
+       12-video walkthrough carousel
+    ----------------------------------------- */
+    const walkthroughVideos = Array.from({ length: 12 }, (_, i) =>
+      `https://cdn.jsdelivr.net/gh/Tofua/NHS@main/Videos/walkthrough${i + 1}.mp4`
+    );
+
+    const overlay   = document.getElementById('walkthroughOverlay');
+    const videoElem = document.getElementById('walkthroughVideo');
+    const prevBtn   = document.getElementById('prevWalkthroughBtn');
+    const nextBtn   = document.getElementById('nextWalkthroughBtn');
+    const progress  = document.getElementById('walkthroughProgressBar');
+
+    let currentIndex = 0;
+    loadVideo(currentIndex);
+
+    function loadVideo(idx) {
+      nextBtn.classList.remove('ready');          // reset colour
+      videoElem.src = walkthroughVideos[idx];
+      videoElem.play();
+      prevBtn.style.display = idx === 0 ? 'none' : 'block';
+      nextBtn.textContent   = idx === walkthroughVideos.length - 1 ? 'Enter Site' : 'Next';
+      /* update bar for videos already finished */
+      progress.style.width  = `${idx / walkthroughVideos.length * 100}%`;
+    }
+
+    prevBtn.addEventListener('click', () => {
+      if (currentIndex > 0) {
+        currentIndex--;
+        loadVideo(currentIndex);
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      if (currentIndex < walkthroughVideos.length - 1) {
+        currentIndex++;
+        loadVideo(currentIndex);
+      } else {
+        /* Finished walkthrough — hide overlay & unlock page */
+        overlay.style.display   = 'none';
+        prevBtn.style.display   = 'none';
+        nextBtn.style.display   = 'none';
+        document.body.style.overflow = '';   // re-enable scroll
+        /* hide progress bar */
+        document.getElementById('walkthroughProgressBarContainer').style.display='none';
+        /* Reveal floating controls now the report is live */
+        const fc = document.getElementById('floatingControls');
+        if (fc) fc.style.display = 'flex';
+      }
+    });
+
+    /* Wait for video to end, then highlight 'Next' button */
+    videoElem.addEventListener('ended', () => {
+      /* Hold current frame, then mark button + progress
+         (duration check guards against NaN in Safari)  */
+      videoElem.pause();
+      if (videoElem.duration) {
+        videoElem.currentTime = Math.max(videoElem.duration - 0.1, 0);
+      }
+
+      /* highlight NEXT + grow bar */
+      nextBtn.classList.add('ready');
+      progress.style.width = `${(currentIndex + 1) / walkthroughVideos.length * 100}%`;
+    });
+
+    /* ---------- NEW: freeze on last frame ------------ */
+    videoElem.addEventListener('ended', () => {
+      /* Hold current frame instead of flashing black.
+         (duration check guards against NaN in Safari)  */
+      videoElem.pause();
+      if (videoElem.duration) {
+        videoElem.currentTime = Math.max(videoElem.duration - 0.1, 0);
+      }
+    });
+
+    /* Prevent page scroll while overlay is showing */
+    document.body.style.overflow = 'hidden';
+  </script>
+
 
   <!-- ========== FLOW-LOG TAB + BOX ========== -->
   <div id="flowLogTab">
@@ -519,7 +674,7 @@ const dashboardSection = document.getElementById('dashboardSection');
 
 /* Hard-code the user that should see the report.
    Change usrID if you want a different default account. */
-let filterValues = { usrID: 1 };   // ← Admin
+let filterValues = { usrID: 4 };   // ← Admin
 
 // Show the dashboard immediately …
 dashboardSection.style.display = 'block';
