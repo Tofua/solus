@@ -1,0 +1,1963 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- Add jQuery first -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<!-- Then Toastr -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script type="text/javascript">window.$crisp=[];window.CRISP_WEBSITE_ID="fbcb448a-beca-4eb3-9ff0-aa11729254b2";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();</script>
+  <meta charset="UTF-8">
+  <title>BullWhip App</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/powerbi-client/2.19.1/powerbi.min.js"></script>
+  <!-- Feather Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <style>
+    /* -----------------------------------------------------------
+       1) Base Reset + Font
+    ----------------------------------------------------------- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+      background-color: #f5f5f5;
+    }
+
+    /* -----------------------------------------------------------
+       2) Canvas Background for Floating Circles
+    ----------------------------------------------------------- */
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0; /* behind everything else */
+    }
+    /* -----------------------------------------------------------
+       (login styles removed – no login form anymore)
+    ----------------------------------------------------------- */
+
+    /* -----------------------------------------------------------
+       4) DASHBOARD SECTION (Initially Hidden)
+    ----------------------------------------------------------- */
+    #dashboardSection {
+      display: none; /* hidden until user logs in */
+      width: 100%;
+      height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+    #reportContainer {
+      width: 100%;
+      height: 100vh;
+      position: relative;
+    }
+
+    /* Floating controls container - from alittlebitofdislittlebitofdat19.html */
+    #floatingControls {
+      position: fixed;
+      top: 15px;
+      right: 120px;
+      z-index: 2147483647;
+      display: flex;
+      gap: 10px;
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      cursor: move; /* Draggable */
+      user-select: none; 
+    }
+    .control-button {
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      background-color: #F9F9F9;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .control-button:hover {
+      background-color: #f0f0f0;
+    }
+    .control-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    /* —— Brand-color Feather icons in floating controls —— */
+    /* set the button’s color so SVG stroke="currentColor" picks it up */
+    #floatingControls .control-button {
+      color: #86899A;
+    }
+    /* smaller but thicker Feather icons */
+    #floatingControls .control-button svg {
+      /* reduce icon dimensions */
+      width: 20px;
+      height: 20px;
+      /* increase stroke thickness */
+      stroke-width: 2.5;
+      /* ensure it still uses the button’s currentColor */
+      stroke: currentColor;
+    } 
+
+    /* The small "Loading..." indicator in the corner */
+    #loadingIndicator {
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      padding: 8px 12px;
+      background-color: rgba(255, 243, 205, 0.9);
+      color: #856404;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      z-index: 2147483647; 
+      display: none;
+      max-width: 250px;
+    }
+/* Big overlay for normal loading events (modified to allow background interaction) */
+#loadingOverlay {
+  position: fixed; 
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: transparent; /* remove the frosted effect */
+  pointer-events: none;          /* allow interaction with elements behind */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 2147483647; 
+  display: none;
+}
+
+    /* Non-blocking spinner for refresh */
+    #refreshSpinner {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2147483648; 
+      pointer-events: none; 
+      display: none;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3; 
+      border-top: 4px solid #0078d4; 
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #333;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 5px 10px;
+      border-radius: 4px;
+    }
+
+    /* Error message style reused from snippet */
+    .error {
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      color: #721c24;
+      background-color: rgba(248, 215, 218, 0.9);
+      border: 1px solid rgba(245, 198, 203, 0.9);
+      padding: 10px;
+      border-radius: 4px;
+      z-index: 2147483647;
+      max-width: 80%;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Fullscreen message prompt */
+    #fullscreenPrompt {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 60px 30px 30px 30px;
+      background-color: rgba(255, 255, 255, 0.95);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      z-index: 2147483647;
+      width: 300px;
+      display: none; /* hidden by default */
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+    }
+    #fullscreenPrompt p {
+      margin: 0;
+      font-size: 16px;
+    }
+    #fullscreenPrompt button {
+      padding: 10px 20px;
+      background-color: #0078d4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #fullscreenPrompt button:hover {
+      background-color: #0069b9;
+    }
+    #closeFullscreenPrompt {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      width: 24px;
+      height: 24px;
+      background-color: transparent;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+    }
+    #closeFullscreenPrompt:hover {
+      color: #333;
+    }
+    .fullscreen-icon {
+      transition: all 0.3s ease;
+    }
+
+    /* ========== FLOW-LOG TAB + BOX (slide-out) ========== */
+
+    /* 1. little left-hand tab */
+    #flowLogTab{
+      position:fixed;
+      left:0;
+      bottom:100px;
+      background:linear-gradient(135deg,#F05123,#F07123);
+      color:#fff;
+      padding:10px 12px;
+      border-radius:0 8px 8px 0;
+      box-shadow:2px 2px 10px rgba(0,0,0,.1);
+      cursor:pointer;
+      z-index:9998;
+      transition:transform .3s ease;
+    }
+    #flowLogTab.active{transform:translateX(280px)}
+    .tab-icon{display:flex;align-items:center;justify-content:center}
+    .tab-icon svg{width:20px;height:20px;stroke:#fff;stroke-width:2;fill:none}
+
+    /* red counter */
+    .notification-badge{
+      position:absolute;top:-8px;right:-8px;
+      width:20px;height:20px;font-size:12px;
+      background:#dc3545;color:#fff;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 2px 5px rgba(0,0,0,.2);opacity:0;
+      transition:opacity .3s ease;
+    }
+    .notification-badge.show{opacity:1}
+
+    /* 2. slide-out box */
+    #flowLogBox{
+      position:fixed;
+      bottom:100px;
+      left:-280px;               /* start off-screen */
+      width:280px;height:160px;
+      background:rgba(255,255,255,.95);
+      border-radius:0 8px 8px 0; /* square left edge */
+      box-shadow:3px 2px 12px rgba(0,0,0,.1);
+      z-index:9997;
+      overflow:hidden;
+      display:flex;flex-direction:column;
+      transition:transform .3s ease;
+    }
+    #flowLogBox.open{transform:translateX(280px)}
+
+    /* header / list / colours – these are identical to your old rules */
+    .flow-log-header{padding:8px 12px;background:linear-gradient(135deg,#F05123,#F07123);color:#fff;font-weight:500;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+    .flow-log-content{flex:1;overflow-y:auto;padding:0;display:flex;flex-direction:column;scroll-behavior:smooth}
+    .flow-log-item{padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;animation:fadeIn .3s ease;display:flex;align-items:center}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .flow-log-item:last-child{border-bottom:none}
+    .flow-log-item-info{border-left:3px solid #17a2b8}
+    .flow-log-item-error{border-left:3px solid #dc3545;background:rgba(255,235,238,.3)}
+    .flow-log-item-success{border-left:3px solid #28a745;background:rgba(236,253,240,.3)}
+    .flow-log-icon{margin-right:8px;display:flex;align-items:center;justify-content:center}
+    .flow-log-message{flex:1;word-break:break-word}
+    .flow-log-close{background:none;border:none;color:#fff;cursor:pointer;opacity:.7;transition:opacity .2s;padding:0;display:flex;align-items:center;justify-content:center}
+    .flow-log-close:hover{opacity:1}
+    .log-icon{width:16px;height:16px;stroke-width:2;stroke:currentColor;fill:none}
+    .log-icon-info{color:#17a2b8}.log-icon-error{color:#dc3545}.log-icon-success{color:#28a745}
+
+  </style>
+</head>
+
+<body>
+  <!-- The floating circles canvas -->
+  <canvas id="canvas"></canvas>
+
+  <!-- ========== FLOW-LOG TAB + BOX ========== -->
+  <div id="flowLogTab">
+    <div class="tab-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+    </div>
+    <span class="notification-badge">0</span>
+  </div>
+
+  <div id="flowLogBox">
+    <div class="flow-log-header">
+      <span>Process Updates</span>
+      <button class="flow-log-close">
+        <svg class="log-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="flow-log-content"><!-- log items injected here --></div>
+  </div>
+
+<!-- (login section removed – report loads automatically) -->
+
+  <!-- DASHBOARD SECTION (auto-visible) -->
+  <div id="dashboardSection">
+    <div id="errorMessage" class="error"></div>
+    <div id="loadingIndicator">Loading...</div>
+    <div id="loadingOverlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading...</div>
+    </div>
+    <div id="refreshSpinner">
+      <div class="spinner"></div>
+    </div>
+
+      <!-- (logout button removed – no longer needed) -->
+
+      <!-- Power BI report goes here -->
+      <div id="reportContainer"></div>
+  </div> <!-- /#dashboardSection -->
+    <div id="fullscreenPrompt">
+      <button id="closeFullscreenPrompt" title="Close">✕</button>
+      <p>Click the button below to enter fullscreen mode</p>
+      <button id="promptFullscreenBtn">Enter Fullscreen</button>
+    </div>
+  </div>
+
+  <!-- (logout handler removed – authentication flow no longer exists) -->  
+
+  <script>
+    /* ===========================================================
+       PART A: CANVAS BACKGROUND & FLOATING CIRCLES (from login.html)
+    =========================================================== */
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function setCanvasSize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', setCanvasSize);
+    setCanvasSize();
+
+    let mouse = {
+      x: undefined,
+      y: undefined,
+      radius: 120
+    };
+    window.addEventListener('mousemove', function(event) {
+      mouse.x = event.x;
+      mouse.y = event.y;
+    });
+
+    class Circle {
+      constructor(x, y, radius, color) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.color = color;
+        this.baseRadius = radius;
+
+        this.speedX = (Math.random() - 0.5) * 0.3;
+        this.speedY = (Math.random() - 0.5) * 0.3;
+
+        this.speedVariation = Math.random() * 0.05;
+        this.speedAngle = Math.random() * Math.PI * 2;
+
+        this.density = (Math.random() * 15) + 5;
+        this.opacity = 0.5 + Math.random() * 0.3;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = this.opacity;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      update() {
+        // Slight wave movement
+        this.speedX += Math.sin(this.speedAngle) * this.speedVariation;
+        this.speedY += Math.cos(this.speedAngle) * this.speedVariation;
+        this.speedAngle += 0.005;
+
+        // Limit speed
+        if (this.speedX > 0.4) this.speedX = 0.4;
+        if (this.speedX < -0.4) this.speedX = -0.4;
+        if (this.speedY > 0.4) this.speedY = 0.4;
+        if (this.speedY < -0.4) this.speedY = -0.4;
+
+        this.x += this.speedX;
+        this.y += this.speedY;
+
+        // Boundary bounce
+        if (this.x < this.radius) {
+          this.x = this.radius;
+          this.speedX = -this.speedX;
+        }
+        if (this.x > canvas.width - this.radius) {
+          this.x = canvas.width - this.radius;
+          this.speedX = -this.speedX;
+        }
+        if (this.y < this.radius) {
+          this.y = this.radius;
+          this.speedY = -this.speedY;
+        }
+        if (this.y > canvas.height - this.radius) {
+          this.y = canvas.height - this.radius;
+          this.speedY = -this.speedY;
+        }
+
+        // Mouse interaction
+        if (mouse.x !== undefined && mouse.y !== undefined) {
+          const dx = mouse.x - this.x;
+          const dy = mouse.y - this.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < mouse.radius + this.radius) {
+            const angle = Math.atan2(dy, dx);
+            const force = (mouse.radius - distance) / mouse.radius;
+            const moveX = Math.cos(angle) * force * this.density;
+            const moveY = Math.sin(angle) * force * this.density;
+
+            this.x -= moveX * 0.7;
+            this.y -= moveY * 0.7;
+          }
+        }
+        this.draw();
+      }
+    }
+
+    let circles = [];
+    function initCircles() {
+      circles = [];
+      const screenArea = canvas.width * canvas.height;
+      const circleCount = Math.max(20, Math.min(80, Math.floor(screenArea / 15000)));
+
+      const colors = [
+        'rgba(240, 81, 35, 0.07)',   // Very subtle brand color
+        'rgba(240, 81, 35, 0.05)',   // Even more subtle brand color
+        'rgba(245, 245, 245, 0.5)',  // Light gray
+        'rgba(250, 250, 250, 0.5)',  // Off-white
+        'rgba(240, 240, 240, 0.5)'   // Another light gray
+      ];
+
+      for (let i = 0; i < circleCount; i++) {
+        const radius = Math.random() * 20 + 5;
+        const x = Math.random() * (canvas.width - radius * 2) + radius;
+        const y = Math.random() * (canvas.height - radius * 2) + radius;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        circles.push(new Circle(x, y, radius, color));
+      }
+    }
+    function animate() {
+      requestAnimationFrame(animate);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      circles.forEach(circle => {
+        circle.update();
+      });
+    }
+    initCircles();
+    animate();
+
+    window.addEventListener('resize', function() {
+      setCanvasSize();
+      initCircles();
+    });
+    window.addEventListener('mouseout', function() {
+      mouse.x = undefined;
+      mouse.y = undefined;
+    });
+
+/* ===========================================================
+   PART B: DIRECT DASHBOARD LOAD — LOGIN REMOVED
+=========================================================== */
+const dashboardSection = document.getElementById('dashboardSection');
+
+/* Hard-code the user that should see the report.
+   Change usrID if you want a different default account. */
+let filterValues = { usrID: 1 };   // ← Admin
+
+// Show the dashboard immediately …
+dashboardSection.style.display = 'block';
+
+// …and embed the report right away.
+initializeDashboard();
+
+
+/* -----------------------------------------------------------
+   Initialize the actual Power BI dashboard after login
+----------------------------------------------------------- */
+function initializeDashboard() {
+  // Global variables for token refresh and report tracking
+  let tokenRefreshInterval;
+  let currentAccessToken;
+  let report;
+  let currentPage;
+  let pages = [];
+
+  // Function to refresh the Power BI token automatically
+  function startTokenRefreshTimer() {
+    // Clear any existing interval first
+    clearInterval(tokenRefreshInterval);
+    
+    // Set to refresh every 40 minutes (40 * 60 * 1000 milliseconds)
+    const refreshIntervalMs = 40 * 60 * 1000;
+    
+    console.log(`Token refresh timer started. Will refresh every ${refreshIntervalMs/60000} minutes.`);
+    
+    tokenRefreshInterval = setInterval(async () => {
+      console.log("Token refresh timer triggered. Fetching new token...");
+      try {
+        const response = await fetch("https://powerbitokenapp.azurewebsites.net/api/GetEmbedToken?code=XzC3pncLfW__oe3-UMCbQikTv5-7OrElhjknmOHVMmgDAzFuOUDPng==");
+        const data = await response.json();
+        currentAccessToken = data.token;
+        
+        console.log("New token obtained. Updating report...");
+        
+        // Update the token in the active report
+        if (report) {
+          await report.setAccessToken(currentAccessToken);
+          console.log("Report access token updated successfully");
+        }
+      } catch (error) {
+        console.error("Error refreshing token:", error);
+        showError("Failed to refresh authentication token. You may need to reload the page.");
+      }
+    }, refreshIntervalMs);
+  }
+
+  // Function to stop the token refresh timer when needed
+  function stopTokenRefreshTimer() {
+    clearInterval(tokenRefreshInterval);
+    console.log("Token refresh timer stopped");
+  }
+
+  // ***** NEW: Token Expiration Overlay Functions *****
+  // This function creates a frosted overlay with a "Refresh Access" button
+  function showTokenExpiredOverlay() {
+    // Create overlay element
+    const overlay = document.createElement('div');
+    overlay.id = 'tokenExpiredOverlay';
+    overlay.style.position = 'absolute';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+    overlay.style.backdropFilter = 'blur(5px)';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.style.zIndex = '1000'; // Ensure it’s on top
+    overlay.innerHTML = `
+      <p style="font-size: 1.2em; margin-bottom: 20px;">Access token expired.</p>
+      <button id="refreshAccessBtn" style="padding: 10px 20px; font-size: 1em;">Refresh Access</button>
+    `;
+
+    // Append overlay to the report container
+    const reportContainer = document.getElementById('reportContainer');
+    reportContainer.style.position = 'relative'; // Ensure proper positioning
+    reportContainer.appendChild(overlay);
+
+    // Add click event for refreshing the token manually
+    document.getElementById('refreshAccessBtn').addEventListener('click', async () => {
+      await refreshAccessToken();
+      overlay.remove();
+    });
+  }
+
+  // This function refreshes the token manually when the user clicks "Refresh Access"
+  async function refreshAccessToken() {
+    try {
+      console.log("Manual token refresh triggered.");
+      const response = await fetch("https://powerbitokenapp.azurewebsites.net/api/GetEmbedToken?code=XzC3pncLfW__oe3-UMCbQikTv5-7OrElhjknmOHVMmgDAzFuOUDPng==");
+      const data = await response.json();
+      currentAccessToken = data.token;
+      if (report) {
+        await report.setAccessToken(currentAccessToken);
+        console.log("Token refreshed and updated on the report.");
+      }
+    } catch (error) {
+      console.error("Error refreshing token manually:", error);
+      showError("Failed to refresh token. Please try again.");
+    }
+  }
+  // ***** End NEW code *****
+
+  // Create floating controls
+  const floatingControls = document.createElement('div');
+  floatingControls.id = 'floatingControls';
+  floatingControls.innerHTML = `
+    <button id="fullscreenBtn" class="control-button" title="Enter Fullscreen">
+      <i data-feather="maximize"></i>
+    </button>
+    <button id="pageIconBtn" class="control-button" title="Change Page">
+      <i data-feather="bookmark"></i>
+    </button>
+    <button id="refreshVisualsBtn" class="control-button" title="Refresh Visuals">
+      <i data-feather="rotate-cw"></i>
+    </button>
+  `;
+  document.body.appendChild(floatingControls);
+  makeDraggable(floatingControls);
+  // initialize Feather Icons
+  feather.replace();
+
+  function makeDraggable(element) {
+  let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+  let isDragging = false;
+  
+  // Use the element itself for dragging, not its children
+  element.addEventListener('mousedown', function(e) {
+    // Only trigger drag if clicking on the container itself, not buttons
+    if (e.target === element || e.target === element.firstElementChild) {
+      e.preventDefault();
+      isDragging = true;
+      
+      // Get the initial mouse position
+      pos3 = e.clientX;
+      pos4 = e.clientY;
+    }
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (!isDragging) return;
+    
+    e.preventDefault();
+    // Calculate the new position
+    pos1 = pos3 - e.clientX;
+    pos2 = pos4 - e.clientY;
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+    
+    // Set the element's new position
+    element.style.top = (element.offsetTop - pos2) + "px";
+    element.style.left = (element.offsetLeft - pos1) + "px";
+    element.style.right = "auto"; // Prevent right positioning from interfering
+  });
+  
+  document.addEventListener('mouseup', function() {
+    isDragging = false;
+  });
+}
+
+  function showLoading(message, mode = "normal") {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const refreshSpinner = document.getElementById('refreshSpinner');
+    const overlayText = loadingOverlay.querySelector('.loading-text');
+
+    const finalMessage = message || "Loading...";
+    loadingIndicator.textContent = finalMessage;
+    loadingIndicator.style.display = 'block';
+
+    if (mode === "refresh") {
+      refreshSpinner.style.display = 'block';
+      loadingOverlay.style.display = 'none';
+    } else {
+      overlayText.textContent = finalMessage;
+      loadingOverlay.style.display = 'flex';
+      refreshSpinner.style.display = 'none';
+    }
+  }
+
+  function hideLoading() {
+    document.getElementById('loadingIndicator').style.display = 'none';
+    document.getElementById('loadingOverlay').style.display = 'none';
+    document.getElementById('refreshSpinner').style.display = 'none';
+  }
+
+  function showError(message) {
+    const errorElement = document.getElementById('errorMessage');
+    errorElement.style.display = 'block';
+    errorElement.textContent = message;
+    console.error(message);
+    setTimeout(() => {
+      errorElement.style.display = 'none';
+    }, 7000);
+  }
+
+  function showFullscreenPrompt() {
+    document.getElementById('fullscreenPrompt').style.display = 'flex';
+  }
+
+  function hideFullscreenPrompt() {
+    document.getElementById('fullscreenPrompt').style.display = 'none';
+  }
+
+  document.getElementById('closeFullscreenPrompt').addEventListener('click', hideFullscreenPrompt);
+
+  async function enterFullscreen() {
+    if (!document.fullscreenElement) {
+      if (document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen();
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      // swap to “minimize” icon
+      fullscreenBtn.innerHTML = '<i data-feather="minimize"></i>';
+      fullscreenBtn.title = "Exit Fullscreen";
+      feather.replace();
+      }
+    }
+  }
+
+  async function exitFullscreen() {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      // swap back to “maximize” icon
+      fullscreenBtn.innerHTML = '<i data-feather="maximize"></i>';
+      fullscreenBtn.title = "Enter Fullscreen";
+      feather.replace();
+    }
+  }
+
+
+  document.getElementById('promptFullscreenBtn').addEventListener('click', async () => {
+    hideFullscreenPrompt();
+    await enterFullscreen();
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'F11') {
+      event.preventDefault();
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      if (fullscreenBtn) fullscreenBtn.click();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement) {
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      // ensure icon is set back to maximize
+      fullscreenBtn.innerHTML = '<i data-feather="maximize"></i>';
+      fullscreenBtn.title = "Enter Fullscreen";
+      feather.replace();
+    }
+  });
+
+  const pageIconBtn = document.getElementById('pageIconBtn');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', async () => {
+      if (document.fullscreenElement) {
+        await exitFullscreen();
+      } else {
+        await enterFullscreen();
+      }
+    });
+  }
+
+  fetch("https://powerbitokenapp.azurewebsites.net/api/GetEmbedToken?code=XzC3pncLfW__oe3-UMCbQikTv5-7OrElhjknmOHVMmgDAzFuOUDPng==")
+    .then(response => response.json())
+    .then(data => {
+      currentAccessToken = data.token;
+      const reportId = "782913b3-f792-4f84-bc87-d46092f64932";
+      const models   = window['powerbi-client'].models;
+
+      /* Use the embedUrl the function returns (preferred) or fall back */
+      const embedUrl = data.embedUrl || 
+        `https://app.powerbi.com/reportEmbed?reportId=${reportId}`;
+
+      // Log the filter value for debugging
+      console.log(`Using filter for usrID=${filterValues.usrID}`);
+      
+      // Report-level filters: none (full page – no filters)
+      const reportFilters = [];
+      
+      // Define filters for page 1 (Users table)
+      const page1Filters = [
+        {
+          $schema: "http://powerbi.com/product/schema#basic",
+          target: { table: "Users", column: "UserID" },
+          operator: "In",
+          values: [filterValues.usrID]
+        }
+      ];
+      
+      // Define filters for page 2 (UsersClone table)
+      const page2Filters = [
+        {
+          $schema: "http://powerbi.com/product/schema#basic",
+          target: { table: "UsersClone", column: "UserID" },
+          operator: "In",
+          values: [filterValues.usrID]
+        }
+      ];
+
+      const embedConfiguration = {
+        type: "report",
+        id: reportId,
+        embedUrl: `https://app.powerbi.com/reportEmbed?reportId=${reportId}`,
+        tokenType: models.TokenType.Aad,
+        accessToken: currentAccessToken,
+        permissions: models.Permissions.Read,
+        settings: {
+          panes: {
+            filters: { visible: false },
+            pageNavigation: { visible: false }
+          },
+          bars: {
+            statusBar: { visible: true }
+          }
+        }
+      };
+
+      // Apply specific filters to a specific page by name
+      async function applyFiltersToPage(pageName, pageFilters) {
+        try {
+          // Get all pages
+          const allPages = await report.getPages();
+          console.log("Available pages:", allPages.map(p => ({name: p.name, displayName: p.displayName})));
+          
+          // Find the target page by name or display name
+          const targetPage = allPages.find(p => 
+            p.name === pageName || 
+            p.displayName === pageName ||
+            p.name.includes(pageName) || 
+            p.displayName.includes(pageName)
+          );
+          
+          if (!targetPage) {
+            console.error(`Page "${pageName}" not found. Available pages: ${allPages.map(p => p.name).join(", ")}`);
+            return false;
+          }
+          
+          console.log(`Applying filters to page: ${targetPage.displayName} (${targetPage.name})...`);
+          await targetPage.setFilters(pageFilters);
+          console.log(`Filters applied successfully to page: ${targetPage.displayName}`);
+          
+          return true;
+        } catch (error) {
+          console.error("Error applying filters:", error);
+          return false;
+        }
+      }
+
+      function setupLoadingTracking(report) {
+        showLoading("Loading report...", "normal");
+        
+        report.on("loaded", async function() {
+          const loadingText = document.querySelector('#loadingOverlay .loading-text');
+          loadingText.textContent = 'Applying filters and rendering visuals...';
+          
+          try {
+            // Apply report-level filters (none in this case)
+            console.log("Applying report-level filters...");
+            await report.setFilters(reportFilters);
+            console.log("Report-level filters applied successfully");
+            
+            // Get and set up pages
+            await getReportPages();
+            
+            // Apply page-specific filters
+            await applyFiltersToPage("Prospect", page1Filters);
+            await applyFiltersToPage("Pinpoint", page2Filters);
+            
+          } catch (error) {
+            console.error("Error during filter application:", error);
+          }
+          
+          setTimeout(function() {
+            showFullscreenPrompt();
+          }, 1000);
+        });
+        
+        report.on("rendered", function() {
+          hideLoading();
+        });
+        
+        report.on("pageChanged", (event) => {
+          const newPage = event.detail.newPage;
+          showLoading(`Loading page: ${newPage.displayName}...`, "normal");
+          currentPage = pages.find(p => p.name === newPage.name) || newPage;
+        });
+        
+        report.on("renderingStarted", function() {
+          showLoading("Processing...", "normal");
+        });
+        
+        report.on("visualRendered", function(event) {
+          document.getElementById('loadingIndicator').textContent =
+            `Rendered visual: ${event.detail.name}`;
+        });
+        
+        // Modified error handler to catch token expiration errors and show the overlay
+        report.on("error", function(event) {
+          const errorMsg = event.detail.message.toLowerCase();
+          if (errorMsg.includes("token") && errorMsg.includes("expired")) {
+            showTokenExpiredOverlay();
+          } else {
+            showError(`Error: ${event.detail.message}`);
+          }
+          hideLoading();
+        });
+      }
+
+      async function getReportPages() {
+        try {
+          pages = await report.getPages();
+          currentPage = await report.getActivePage();
+          const currentIndex = pages.findIndex(p => p.name === currentPage.name);
+          updatePageIcon(currentIndex);
+        } catch (error) {
+          showError(`Error loading pages: ${error.message}`);
+        }
+      }
+      
+      function updatePageIcon(pageIndex) {
+        const pageIcon = document.querySelector('.page-icon');
+        const pageIconBtn = document.getElementById('pageIconBtn');
+        if (!pageIcon) return;
+        switch (pageIndex) {
+                  case 0:
+            pageIcon.innerHTML = '<i data-feather="search"></i>';
+            pageIconBtn.title = "Search Page";
+            break;
+        case 1:
+            pageIcon.innerHTML = '<i data-feather="map-pin"></i>';
+            pageIconBtn.title = "Pin Page";
+            break;
+        default:
+            pageIcon.innerHTML = '<i data-feather="file"></i>';
+            pageIconBtn.title = "Page " + (pageIndex + 1);
+          }
+  // re-render Feather icons
+  feather.replace();
+ }
+      
+      async function navigateToNextPage() {
+        try {
+          if (!pages.length || !currentPage) {
+            await getReportPages();
+            if (!pages.length || !currentPage) {
+              throw new Error("Pages not available");
+            }
+          }
+          const currentIndex = pages.findIndex(p => p.name === currentPage.name);
+          const nextIndex = (currentIndex + 1) % pages.length;
+          const nextPage = pages[nextIndex];
+          showLoading(`Loading page: ${nextPage.displayName}...`, "normal");
+          await nextPage.setActive();
+          currentPage = nextPage;
+          updatePageIcon(nextIndex);
+        } catch (error) {
+          showError(`Navigation error: ${error.message}`);
+          hideLoading();
+        }
+      }
+      
+      if (pageIconBtn) {
+        pageIconBtn.addEventListener('click', async () => {
+          await navigateToNextPage();
+        });
+      }
+
+    // Refresh Visuals
+// Refresh Visuals
+const refreshBtn = document.getElementById('refreshVisualsBtn');
+if (refreshBtn) {
+  refreshBtn.addEventListener('click', async () => {
+    doVisualRefresh();
+  });
+}
+
+// Add these two new functions after the refresh button event listener
+async function doVisualRefresh() {
+  try {
+    // Attempt to refresh
+    showLoading("Refreshing visuals...", "refresh");
+    await report.refresh({ type: "visual" });
+    hideLoading();
+  } catch (error) {
+    // Hide the refresh spinner since we're in error state
+    hideLoading();
+    
+    // Get reference to refresh button and disable it during countdown
+    const refreshBtn = document.getElementById('refreshVisualsBtn');
+    startRefreshRetryCountdown(5, refreshBtn);
+  }
+}
+
+function startRefreshRetryCountdown(seconds, button) {
+  // Grey out the button
+  button.disabled = true;
+  button.style.opacity = "0.5";
+  button.style.cursor = "not-allowed";
+  
+  let counter = seconds;
+  
+  // Show error with improved countdown message
+  showError(`Refresh cooldown: ${counter}s`);
+  
+  // Start countdown - but each "second" is actually 1.5 seconds (1500ms)
+  // This makes a 5-second visual countdown actually take 7.5 seconds
+  const intervalId = setInterval(() => {
+    counter--;
+    if (counter > 0) {
+      showError(`Refresh cooldown: ${counter}s`);
+    } else {
+      // Clear interval when done
+      clearInterval(intervalId);
+      
+      // Re-enable the button
+      button.disabled = false;
+      button.style.opacity = "1";
+      button.style.cursor = "pointer";
+      
+      // Clear error message
+      document.getElementById('errorMessage').style.display = 'none';
+      
+      // Try refresh again
+      doVisualRefresh();
+    }
+  }, 1500); // Changed from 1000ms to 1500ms to make each "second" 50% longer
+}
+      // Finally embed the report
+      try {
+        showLoading("Loading report...", "normal");
+        const reportContainer = document.getElementById('reportContainer');
+              report = powerbi.embed(reportContainer, embedConfiguration);
+              setupLoadingTracking(report);
+        
+        // expose for flow-log triggered refresh
+        window.report = report;
+        startTokenRefreshTimer();
+        
+        // Clean up the token refresh timer when the window is closed or refreshed
+        window.addEventListener('beforeunload', () => {
+          stopTokenRefreshTimer();
+        });
+        
+      } catch (error) {
+        showError(`Initialization error: ${error.message}`);
+        hideLoading();
+      }
+    })
+    .catch(error => {
+      showError("Error retrieving embed token: " + error);
+      document.getElementById('loadingOverlay').style.display = 'none';
+      document.getElementById('loadingIndicator').style.display = 'none';
+      document.getElementById('refreshSpinner').style.display = 'none';
+    });
+}
+</script>
+  <script>
+  // --- Polling settings ---
+  const webhookPollingInterval = 10000;   // Check every 10 s
+  const flowLogPollingInterval  =  2000;  // Check every 2 s
+  const storageContainerUrl = "https://tofsbigdataa77f.blob.core.windows.net/webhookstore"; // Public read access must be enabled
+  const flowlogsContainerUrl = "https://tofsbigdataa77f.blob.core.windows.net/flowlogs"; // Add this line for our new container
+  
+  // Track already seen files to avoid duplicate notifications
+  const seenFiles = new Set();
+  const seenFlowLogs = new Set();
+  
+  // Notification system
+  class NotificationSystem {
+    constructor() {
+      this.notifications = [];
+      this.historyData = [];
+      this.container = null;
+      this.historyTab = null;
+      this.historyPanel = null;
+      this.isHistoryOpen = false;
+      
+      // Define SVG icons
+      this.icons = {
+        phone: `<svg class="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>
+        </svg>`,
+        x: `<svg class="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>`,
+        close: `<svg class="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>`,
+        chevronDown: `<svg class="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>`,
+        history: `<svg class="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <polyline points="12 8 12 12 14 14"></polyline>
+          <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"></path>
+        </svg>`
+      };
+      
+      this.initStyles();
+      this.initContainer();
+      this.initHistoryTab();
+    }
+  
+    initStyles() {
+      // Add styles to document
+      const style = document.createElement('style');
+      style.textContent = `
+        /* SVG Icon styles */
+        .icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 20px;
+          width: 20px;
+          stroke-width: 2;
+          stroke: currentColor;
+          fill: none;
+        }
+        
+        .notification-container {
+          position: fixed;
+          bottom: 100px;
+          right: 30px;
+          z-index: 9998;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .notification {
+          background: linear-gradient(135deg, #F05123, #F07123);
+          color: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 15px rgba(240, 81, 35, 0.25);
+          overflow: hidden;
+          width: 300px;
+          transition: all 0.3s ease;
+          opacity: 0;
+          transform: translateX(50px);
+        }
+        
+        .notification.failure {
+          background: linear-gradient(135deg, #6c757d, #495057);
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+          width: 280px;
+        }
+        
+        .notification.show {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        
+        .notification-header {
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+        }
+        
+        .notification-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+        }
+        
+        .notification-icon {
+          font-size: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .notification-icon .icon {
+          stroke-width: 2.5;
+        }
+        
+        .notification-content {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease;
+          padding: 0 16px;
+        }
+        
+        .notification-content.expanded {
+          max-height: 200px;
+          padding-bottom: 12px;
+        }
+        
+        .close-btn {
+          background: none;
+          border: none;
+          color: white;
+          cursor: pointer;
+          opacity: 0.7;
+          transition: opacity 0.2s;
+          padding: 0;
+          font-size: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .close-btn:hover {
+          opacity: 1;
+        }
+        
+        .notification-phone {
+          margin: 4px 0;
+          font-size: 14px;
+          opacity: 0.9;
+        }
+        
+        .notification-name {
+          font-size: 16px;
+          margin-top: 6px;
+        }
+        
+        .notification-company {
+          font-size: 14px;
+          opacity: 0.9;
+          margin-top: 2px;
+          font-style: italic;
+        }
+        
+        .expand-icon {
+          transition: transform 0.3s ease;
+          margin-left: 8px;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+        }
+        
+        .expanded .expand-icon {
+          transform: rotate(180deg);
+        }
+        
+        /* History Tab Styles */
+        .history-tab {
+          position: fixed;
+          bottom: 100px;
+          right: 30px;
+          background: linear-gradient(135deg, #F05123, #F07123);
+          color: white;
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 4px 15px rgba(240, 81, 35, 0.25);
+          z-index: 9999;
+          transition: all 0.3s ease;
+        }
+        
+        .history-tab .icon {
+          width: 22px;
+          height: 22px;
+        }
+        
+        .history-tab:hover {
+          transform: scale(1.05);
+        }
+        
+        .history-tab-icon {
+          font-size: 22px;
+        }
+        
+        .history-panel {
+          position: fixed;
+          bottom: 160px;
+          right: 30px;
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+          width: 320px;
+          max-height: 400px;
+          z-index: 9997;
+          overflow: hidden;
+          transition: all 0.3s ease;
+          opacity: 0;
+          transform: translateY(20px);
+          pointer-events: none;
+        }
+        
+        .history-panel.open {
+          opacity: 1;
+          transform: translateY(0);
+          pointer-events: all;
+        }
+        
+        .history-header {
+          padding: 15px;
+          background: linear-gradient(135deg, #F05123, #F07123);
+          color: white;
+          font-weight: 600;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        
+        .history-content {
+          overflow-y: auto;
+          max-height: 340px;
+          padding: 10px 0;
+        }
+        
+        .history-item {
+          padding: 10px 15px;
+          border-bottom: 1px solid #f0f0f0;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        
+        .history-item:hover {
+          background: #f8f9fa;
+        }
+        
+        .history-item.history-item-failure {
+          background-color: #f8f9fa;
+          border-left: 3px solid #6c757d;
+        }
+        
+        .history-item.history-item-failure:hover {
+          background: #f0f0f0;
+        }
+        
+        .history-item-header {
+          display: flex;
+          justify-content: space-between;
+          font-weight: 500;
+          margin-bottom: 5px;
+        }
+        
+        .history-timestamp {
+          font-size: 12px;
+          color: #6c757d;
+        }
+        
+        .history-phones {
+          font-size: 14px;
+          color: #495057;
+        }
+        
+        .empty-history {
+          padding: 30px 15px;
+          text-align: center;
+          color: #6c757d;
+          font-style: italic;
+        }
+        
+        .notification-badge {
+          position: absolute;
+          top: 0;
+          right: 0;
+          background: #dc3545;
+          color: white;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform: translate(30%, -30%);
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        
+        .notification-badge.show {
+          opacity: 1;
+        }
+        
+        /* When history panel is open, adjust notifications container */
+        .notification-container.history-open {
+          bottom: 170px;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  
+    initContainer() {
+      this.container = document.createElement('div');
+      this.container.className = 'notification-container';
+      document.body.appendChild(this.container);
+    }
+    
+    initHistoryTab() {
+      // Create history tab
+      this.historyTab = document.createElement('div');
+      this.historyTab.className = 'history-tab';
+      this.historyTab.innerHTML = `
+        ${this.icons.history}
+        <span class="notification-badge">0</span>
+      `;
+      document.body.appendChild(this.historyTab);
+      
+      // Create history panel
+      this.historyPanel = document.createElement('div');
+      this.historyPanel.className = 'history-panel';
+      this.historyPanel.innerHTML = `
+        <div class="history-header">
+          <span>Notification History</span>
+          <button class="close-btn">${this.icons.close}</button>
+        </div>
+        <div class="history-content">
+          <div class="empty-history">No notifications yet</div>
+        </div>
+      `;
+      document.body.appendChild(this.historyPanel);
+      
+      // Add event listeners
+      this.historyTab.addEventListener('click', () => this.toggleHistory());
+      this.historyPanel.querySelector('.close-btn').addEventListener('click', () => this.toggleHistory(false));
+      
+      // Close history when clicking outside
+      document.addEventListener('click', (e) => {
+        if (this.isHistoryOpen && 
+            !this.historyPanel.contains(e.target) && 
+            !this.historyTab.contains(e.target)) {
+          this.toggleHistory(false);
+        }
+      });
+    }
+    
+    toggleHistory(force = null) {
+      this.isHistoryOpen = force !== null ? force : !this.isHistoryOpen;
+      
+      if (this.isHistoryOpen) {
+        this.historyPanel.classList.add('open');
+        this.container.classList.add('history-open');
+        // Reset badge
+        this.updateBadge(0);
+      } else {
+        this.historyPanel.classList.remove('open');
+        this.container.classList.remove('history-open');
+      }
+    }
+    
+    updateBadge(count) {
+      const badge = this.historyTab.querySelector('.notification-badge');
+      badge.textContent = count;
+      
+      if (count > 0) {
+        badge.classList.add('show');
+      } else {
+        badge.classList.remove('show');
+      }
+    }
+    
+    addToHistory(data) {
+      // Add to history data
+      const historyItem = {
+        id: `notification-${Date.now()}`,
+        timestamp: new Date(),
+        data: data
+      };
+      
+      this.historyData.unshift(historyItem);
+      this.renderHistory();
+      
+      // Update badge if history panel is not open
+      if (!this.isHistoryOpen) {
+        const currentCount = parseInt(this.historyTab.querySelector('.notification-badge').textContent);
+        this.updateBadge(currentCount + 1);
+      }
+    }
+    
+    renderHistory() {
+      const historyContent = this.historyPanel.querySelector('.history-content');
+      
+      if (this.historyData.length === 0) {
+        historyContent.innerHTML = `<div class="empty-history">No notifications yet</div>`;
+        return;
+      }
+      
+      historyContent.innerHTML = this.historyData.map(item => {
+        const person = item.data.people[0];
+        const phones = person.phone_numbers || [];
+        const firstName = person.first_name || '';
+        const lastName = person.last_name || '';
+        const company = person.company || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        const phoneText = phones.length ? phones.map(p => p.raw_number).join(', ') : 'None';
+        const formattedTime = item.timestamp.toLocaleTimeString();
+        const formattedDate = item.timestamp.toLocaleDateString();
+        const isFailure = phones.length === 0 || person.status === "failure";
+        
+        let displayName = fullName;
+        if (company) {
+          displayName += displayName ? ` - ${company}` : company;
+        }
+        
+        if (!displayName) {
+          displayName = 'Unknown Contact';
+        }
+        
+        return `
+          <div class="history-item${isFailure ? ' history-item-failure' : ''}" data-id="${item.id}">
+            <div class="history-item-header">
+              <span>${isFailure ? this.icons.x : this.icons.phone} ${displayName}</span>
+              <span class="history-timestamp">${formattedTime} ${formattedDate}</span>
+            </div>
+            <div class="history-phones">
+              ${isFailure ? '<span style="color:#6c757d;font-style:italic;">No numbers found</span>' : phoneText}
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // Add click handlers to history items
+      const historyItems = historyContent.querySelectorAll('.history-item');
+      historyItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const id = item.getAttribute('data-id');
+          const historyItem = this.historyData.find(h => h.id === id);
+          if (historyItem) {
+            this.showNotification(historyItem.data, false);
+          }
+        });
+      });
+    }
+  
+    createNotification(data, addToHistory = true, isFailure = false) {
+      const person = data.people[0];
+      const phones = person.phone_numbers || [];
+      const firstName = person.first_name || '';
+      const lastName = person.last_name || '';
+      const company = person.company || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      
+      // Create notification element
+      const notification = document.createElement('div');
+      notification.className = isFailure ? 'notification failure' : 'notification';
+      
+      // Create header
+      const header = document.createElement('div');
+      header.className = 'notification-header';
+      
+      if (isFailure) {
+        header.innerHTML = `
+          <div class="notification-title">
+            <span class="notification-icon">${this.icons.x}</span>
+            <span>No number found</span>
+            <span class="expand-icon">${this.icons.chevronDown}</span>
+          </div>
+        `;
+      } else {
+        header.innerHTML = `
+          <div class="notification-title">
+            <span class="notification-icon">${this.icons.phone}</span>
+            <span>New contact found</span>
+            <span class="expand-icon">${this.icons.chevronDown}</span>
+          </div>
+        `;
+      }
+      
+      // Close button
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'close-btn';
+      closeBtn.innerHTML = this.icons.close;
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeNotification(notification);
+      });
+      header.appendChild(closeBtn);
+      
+      // Create content
+      const content = document.createElement('div');
+      content.className = 'notification-content';
+      
+      // Add person info to content
+      if (fullName) {
+        const nameElement = document.createElement('div');
+        nameElement.className = 'notification-name';
+        nameElement.innerHTML = `<strong>${fullName}</strong>`;
+        content.appendChild(nameElement);
+      }
+      
+      if (company) {
+        const companyElement = document.createElement('div');
+        companyElement.className = 'notification-company';
+        companyElement.textContent = company;
+        content.appendChild(companyElement);
+      }
+      
+      if (isFailure) {
+        // Add failure message
+        const failureMsg = document.createElement('div');
+        failureMsg.className = 'notification-failure-msg';
+        failureMsg.style.marginTop = '8px';
+        failureMsg.style.fontSize = '13px';
+        failureMsg.style.opacity = '0.9';
+        failureMsg.innerHTML = 'No phone numbers were found for this contact.';
+        content.appendChild(failureMsg);
+      } else {
+        // Add separator
+        if ((fullName || company) && phones.length > 0) {
+          const separator = document.createElement('div');
+          separator.className = 'notification-separator';
+          separator.style.margin = '8px 0';
+          separator.style.borderBottom = '1px solid rgba(255,255,255,0.2)';
+          content.appendChild(separator);
+        }
+        
+        // Add phone numbers to content
+        if (phones.length > 0) {
+          const phoneHeader = document.createElement('div');
+          phoneHeader.className = 'notification-phone-header';
+          phoneHeader.innerHTML = `<small>${phones.length > 1 ? 'PHONE NUMBERS' : 'PHONE NUMBER'}</small>`;
+          phoneHeader.style.opacity = '0.7';
+          phoneHeader.style.fontSize = '11px';
+          phoneHeader.style.fontWeight = '500';
+          phoneHeader.style.marginTop = '4px';
+          content.appendChild(phoneHeader);
+          
+          phones.forEach(phone => {
+            const phoneElement = document.createElement('div');
+            phoneElement.className = 'notification-phone';
+            phoneElement.textContent = phone.raw_number;
+            content.appendChild(phoneElement);
+          });
+        }
+      }
+      
+      // Toggle expand on header click
+      header.addEventListener('click', () => {
+        content.classList.toggle('expanded');
+        header.classList.toggle('expanded');
+      });
+      
+      // Assemble notification
+      notification.appendChild(header);
+      notification.appendChild(content);
+      
+      // Add to container and animate in
+      this.container.appendChild(notification);
+      
+      // Trigger reflow for animation
+      notification.offsetHeight;
+      notification.classList.add('show');
+      
+      // Add to history if needed
+      if (addToHistory) {
+        this.addToHistory(data);
+      }
+      
+      return notification;
+    }
+  
+    removeNotification(notification) {
+      notification.classList.remove('show');
+      setTimeout(() => {
+        if (notification.parentNode === this.container) {
+          this.container.removeChild(notification);
+        }
+      }, 300);
+    }
+  
+    showNotification(data, addToHistory = true, isFailure = false) {
+      return this.createNotification(data, addToHistory, isFailure);
+    }
+  }
+  
+  // Initialize notification system
+  const notificationSystem = new NotificationSystem();
+  
+  // Initialize with existing blob names to avoid showing existing data
+  async function initializeSeenFiles() {
+    try {
+      const res = await fetch(`${storageContainerUrl}?restype=container&comp=list`);
+      const text = await res.text();
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(text, "application/xml");
+      const blobs = xml.getElementsByTagName("Name");
+  
+      for (let i = 0; i < blobs.length; i++) {
+        const blobName = blobs[i].textContent;
+        seenFiles.add(blobName);
+      }
+      console.log(`Initialized with ${seenFiles.size} existing blobs`);
+    } catch (err) {
+      console.error("Initialization error:", err);
+    }
+  }
+  // Add this function after initializeSeenFiles()
+async function initializeSeenFlowLogs() {
+  try {
+    const res = await fetch(`${flowlogsContainerUrl}?restype=container&comp=list`);
+    const text = await res.text();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(text, "application/xml");
+    const blobs = xml.getElementsByTagName("Name");
+
+    for (let i = 0; i < blobs.length; i++) {
+      const blobName = blobs[i].textContent;
+      seenFlowLogs.add(blobName);
+    }
+    console.log(`Initialized with ${seenFlowLogs.size} existing flow logs`);
+  } catch (err) {
+    console.error("Flow logs initialization error:", err);
+  }
+}
+  
+  // Poll the container for new files with user_id = 1
+  async function pollWebhookContainer() {
+    try {
+      const res = await fetch(`${storageContainerUrl}?restype=container&comp=list`);
+      const text = await res.text();
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(text, "application/xml");
+      const blobs = xml.getElementsByTagName("Name");
+  
+      for (let i = 0; i < blobs.length; i++) {
+        const blobName = blobs[i].textContent;
+        
+        // Filename format: person_id_status_datetime_user_id.json
+        const parts = blobName.split('_');
+       const userIdWithExtension = parts[parts.length - 1]; // e.g., "1.json"
+       const userId = userIdWithExtension.split('.')[0]; // extract "1" from "1.json"
+       // Use the logged-in user's ID instead of hardcoding "1"
+       if (userId !== filterValues.usrID.toString()) continue;  // Skip files that are not for the logged-in user
+
+  
+        if (seenFiles.has(blobName)) continue;
+        seenFiles.add(blobName);
+  
+        // Fetch and inspect the blob
+        const blobRes = await fetch(`${storageContainerUrl}/${blobName}`);
+        const blobData = await blobRes.json();
+  
+        const person = blobData?.people?.[0];
+        
+        if (blobData.status === "success") {
+        // Check if it's a success or failure based on phone numbers or explicit status
+        if (person) {
+        const phoneNumbers = person.phone_numbers || [];
+        const isSuccess = phoneNumbers.length > 0;
+        const isFailure = person.status === "failure" || phoneNumbers.length === 0;
+    
+        if (isSuccess) {
+        notificationSystem.showNotification(blobData, true, false);
+       } else if (isFailure) {
+       // Deactivated failure notifications:
+       // notificationSystem.showNotification(blobData, true, true);
+      console.log("Failure notification deactivated for blob:", blobName);
+    }
+  }
+}
+      }
+    } catch (err) {
+      console.error("Polling error:", err);
+    }
+  }
+  // Add this function after pollWebhookContainer()
+// --- flow-log polling ------------------------------------
+async function pollFlowLogs () {
+  try {
+    const res   = await fetch(`${flowlogsContainerUrl}?restype=container&comp=list`);
+    const text  = await res.text();
+    const xml   = new DOMParser().parseFromString(text, 'application/xml');
+    const blobs = Array.from(xml.getElementsByTagName('Name')).map(n => n.textContent);
+
+    // only the blobs that belong to the current user
+    const myBlobs = blobs.filter(name => {
+      const parts = name.split('_');
+      if (parts.length < 4) return false;                // bad filename
+      const userId = parts[parts.length - 1].split('.')[0];
+      return userId === filterValues.usrID.toString();
+    });
+
+    /* -----------------------------------------------------
+       Collect unseen blobs + their timestamps
+    ----------------------------------------------------- */
+    const newLogs = [];
+    for (const blobName of myBlobs) {
+      if (seenFlowLogs.has(blobName)) continue;
+      seenFlowLogs.add(blobName);
+
+      const blobRes = await fetch(`${flowlogsContainerUrl}/${blobName}`);
+      const logData = await blobRes.json();              // contains .timestamp
+      newLogs.push({ data: logData, ts: logData.timestamp || '' });
+    }
+
+    /* -----------------------------------------------------
+       Sort by JSON timestamp (oldest->newest) and display
+    ----------------------------------------------------- */
+        newLogs
+      .sort((a, b) => a.ts.localeCompare(b.ts))
+      .forEach(log => {
+        // show the log entry
+        showProgressNotification(log.data);
+        // if this step is 99, trigger a visual refresh
+        if (log.data.step === 99 && window.report) {
+          window.report.refresh({ type: "visual" });
+        }
+      });
+
+  } catch (err) {
+    console.error('Flow-logs polling error:', err);
+  }
+}
+
+
+/* =========================================================
+   FLOW-LOG TAB + BOX  (static markup, slide-out behaviour)
+========================================================= */
+let isLogBoxOpen      = false;
+let autoHideTimer     = null;
+let notificationCount = 0;
+const autoHideDelay   = 5000;           // 5 s of inactivity
+
+function initFlowLogBox () {
+  const tab   = document.getElementById('flowLogTab');
+  const box   = document.getElementById('flowLogBox');
+  const close = box.querySelector('.flow-log-close');
+  const badge = tab.querySelector('.notification-badge');
+
+  /* helper exposed globally so other functions can bump the badge */
+  window.updateNotificationBadge = count => {
+    notificationCount   = count;
+    badge.textContent   = count;
+    badge.classList.toggle('show', count > 0);
+  };
+
+  tab  .addEventListener('click', () => isLogBoxOpen ? hideLogBox() : showLogBox());
+  close.addEventListener('click',  e => { e.stopPropagation(); hideLogBox(); });
+
+  box.addEventListener('mouseenter', clearAutoHideTimer);
+  box.addEventListener('mouseleave', startAutoHideTimer);
+}
+
+function showLogBox () {
+  document.getElementById('flowLogBox').classList.add   ('open');
+  document.getElementById('flowLogTab') .classList.add   ('active');
+  isLogBoxOpen = true;
+  updateNotificationBadge(0);
+  startAutoHideTimer();
+}
+function hideLogBox () {
+  document.getElementById('flowLogBox').classList.remove('open');
+  document.getElementById('flowLogTab') .classList.remove('active');
+  isLogBoxOpen = false;
+  clearAutoHideTimer();
+}
+function startAutoHideTimer () {
+  clearAutoHideTimer();
+  autoHideTimer = setTimeout(hideLogBox, autoHideDelay);
+}
+function clearAutoHideTimer () {
+  if (autoHideTimer) { clearTimeout(autoHideTimer); autoHideTimer = null; }
+}
+
+/* =========================================================
+   SHOW ONE PROGRESS MESSAGE
+========================================================= */
+function showProgressNotification (logData) {
+  const flowLogContent = document.querySelector('.flow-log-content');
+  const logItem        = document.createElement('div');
+
+  /* choose colour/icon */
+  let iconSvg = '', typeClass = '';
+  if (logData.error) {
+    typeClass = 'flow-log-item-error';
+    iconSvg   = `<svg class="log-icon log-icon-error" viewBox="0 0 24 24">
+                   <circle cx="12" cy="12" r="10"></circle>
+                   <line x1="12" y1="8"  x2="12" y2="12"></line>
+                   <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                 </svg>`;
+  } else if (logData.step >= 90) {
+    typeClass = 'flow-log-item-success';
+    iconSvg   = `<svg class="log-icon log-icon-success" viewBox="0 0 24 24">
+                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                   <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                 </svg>`;
+  } else {
+    typeClass = 'flow-log-item-info';
+    iconSvg   = `<svg class="log-icon log-icon-info" viewBox="0 0 24 24">
+                   <circle cx="12" cy="12" r="10"></circle>
+                   <line x1="12" y1="16" x2="12" y2="12"></line>
+                   <line x1="12" y1="8"  x2="12.01" y2="8"></line>
+                 </svg>`;
+  }
+
+  /* build message */
+  const title = (logData.error ? 'Error'
+               : (logData.step >= 90 ? 'Complete' : `Step ${logData.step}`))
+               + (logData.flow ? ` - ${logData.flow}` : '');
+
+  logItem.className = `flow-log-item ${typeClass}`;
+  logItem.innerHTML = `
+      <div class="flow-log-icon">${iconSvg}</div>
+      <div class="flow-log-message"><strong>${title}:</strong> ${logData.message}</div>`;
+
+  flowLogContent.appendChild(logItem);
+  flowLogContent.scrollTop = flowLogContent.scrollHeight;
+
+  /* keep only last 50 */
+  const max = 50;
+  while (flowLogContent.children.length > max) {
+    flowLogContent.removeChild(flowLogContent.firstElementChild);
+  }
+
+  /* badge + auto-open */
+  if (!isLogBoxOpen) {
+    updateNotificationBadge(notificationCount + 1);
+    showLogBox();
+  } else {
+    startAutoHideTimer();
+  }
+}
+
+/* =========================================================
+   STARTUP
+========================================================= */
+(async function () {
+  await initializeSeenFiles();
+  await initializeSeenFlowLogs();
+
+  initFlowLogBox();                      // set up the listeners
+
+  setInterval(pollWebhookContainer, webhookPollingInterval);
+  setInterval(pollFlowLogs,          flowLogPollingInterval);
+})();
+  </script>      
+</body>
+</html>
